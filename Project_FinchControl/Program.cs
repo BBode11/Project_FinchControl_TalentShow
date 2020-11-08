@@ -45,12 +45,16 @@ namespace Project_FinchControl
         /// <param name="args"></param>
         static void Main(string[] args)
         {
-            SetTheme();
+            DisplayLoginRegister();
+
+            DisplayReadandSetTheme();
+            DisplaySetNewTheme();
 
             DisplayWelcomeScreen();
             DisplayMenuScreen();
             DisplayClosingScreen();
         }
+
 
         /// <summary>
         /// setup the console theme
@@ -964,6 +968,9 @@ namespace Project_FinchControl
             commandParameters.ledBrightness = 0;
             commandParameters.waitSeconds = 0;
 
+            //
+            // list from command enum
+            //
             List<Command> commands = new List<Command>();
 
             do
@@ -1042,6 +1049,9 @@ namespace Project_FinchControl
                 Console.WriteLine("\tThe finch robot is ready to execute the list of commands.");
                 DisplayContinuePrompt();
 
+                //
+                // foreach is used to run through each command in enum
+                //
                 foreach (Command command in commands)
                 {
                     switch (command)
@@ -1115,6 +1125,7 @@ namespace Project_FinchControl
             DisplayScreenHeader("Finch Robot Commands");
 
             // Command = Enum, param name = commands, command = the commands the user inputs.
+            // displays each command from user
             foreach (Command command in commands)
             {
                 Console.WriteLine($"\t{command}");
@@ -1307,17 +1318,355 @@ namespace Project_FinchControl
         }
 
 
-#endregion
+        #endregion
 
-#region FINCH ROBOT MANAGEMENT
+        #region Persistence
 
-/// <Disconnect>
-/// *****************************************************************
-/// *               Disconnect the Finch Robot                      *
-/// *****************************************************************
-/// </summary>
-/// <param name="finchRobot">finch robot object</param>
-static void DisplayDisconnectFinchRobot(Finch finchRobot)
+        /// <summary>
+        /// ***************************************************
+        /// *       Read and Set Theme (Persistence)          *
+        /// ***************************************************
+        /// </summary>
+        static void DisplayReadandSetTheme()
+        {
+            //set variables
+            //
+            (ConsoleColor foregroundColor, ConsoleColor backgroundColor) themeColors;
+             string fileIOStatusMessage;
+
+            // read theme from data and set the theme
+            themeColors = ReadThemeDataExceptions(out fileIOStatusMessage);
+            if (fileIOStatusMessage == "Complete")
+            {
+                Console.ForegroundColor = themeColors.foregroundColor;
+                Console.BackgroundColor = themeColors.backgroundColor;
+                Console.Clear();
+
+                DisplayScreenHeader("Read Theme from Data File");
+                Console.WriteLine("\n\tTheme read from the data file.\n");
+            }
+            else
+            {
+                DisplayScreenHeader("Read Theme from Data File");
+                Console.WriteLine("\n\tTheme was not successfully read from data file.");
+                Console.WriteLine($"\t*** {fileIOStatusMessage} ***\n");
+            }
+            DisplayContinuePrompt();
+        }
+
+        /// <summary>
+        /// ***************************************************
+        /// *       Set New Console Theme Screen              *
+        /// ***************************************************
+        /// </summary>
+        static void DisplaySetNewTheme()
+        {
+            //set and list variables
+            (ConsoleColor foregroundColor, ConsoleColor backgroundColor) themeColors;
+            bool themeChosen = false;
+            string fileIOStatusMessage;
+
+            DisplayScreenHeader("Set the New Theme");
+
+            Console.WriteLine($"\tCurrent foreground color: {Console.ForegroundColor}");
+            Console.WriteLine($"\tCurrent background color: {Console.BackgroundColor}");
+            Console.WriteLine();
+
+            Console.WriteLine("\tWould you like to change the current theme of the application [ yes | no ]?");
+            if (Console.ReadLine().ToLower() == "yes")
+            {
+                do
+                {
+                    // query the user for console colors
+                    // use a method to gather console colors
+                    themeColors.foregroundColor = GetConsoleColorFromUser("foreground");
+                    themeColors.backgroundColor = GetConsoleColorFromUser("background");
+
+                    // Set the new theme the user selected
+                    Console.ForegroundColor = themeColors.foregroundColor;
+                    Console.BackgroundColor = themeColors.backgroundColor;
+                    Console.Clear();
+                    DisplayScreenHeader("Set Application Theme");
+                    Console.WriteLine($"\tNew foreground color: {Console.ForegroundColor}");
+                    Console.WriteLine($"\tNew background color: {Console.BackgroundColor}");
+
+                    Console.WriteLine();
+                    Console.WriteLine("\tIs this the new theme you would like to use?");
+                    if (Console.ReadLine().ToLower() == "yes")
+                    {
+                        themeChosen = true;
+                        fileIOStatusMessage = WriteThemeDataExceptions(themeColors.foregroundColor, themeColors.backgroundColor);
+                        if (fileIOStatusMessage == "Complete")
+                        {
+                            Console.WriteLine("\n\tNew theme was added to data file.\n");
+                        }
+                        else
+                        {
+                            Console.WriteLine("\n\tNew theme was not added to data file successfully.");
+                            Console.WriteLine($"\t*** {fileIOStatusMessage} ***\n");
+                        }
+                    }
+                } while (!themeChosen) ;
+            }
+            DisplayContinuePrompt();
+        }
+
+        /// <summary>
+        /// method for gathering console colors from user 
+        /// </summary>
+        /// <param name="property">foreground or background</param>
+        /// <returns>user's console color</returns>
+        static ConsoleColor GetConsoleColorFromUser(string property)
+        {
+            ConsoleColor consoleColor;
+            bool validConsoleColor;
+
+            do
+            {
+                Console.WriteLine($"\tEnter a value for the {property}:");
+                validConsoleColor = Enum.TryParse<ConsoleColor>(Console.ReadLine(), true, out consoleColor);
+
+                if (!validConsoleColor)
+                {
+                    Console.WriteLine("\n\t*** It appears you did not provide a valid console color. Please enter a valid console color. ***\n");
+                }
+                else
+                {
+                    validConsoleColor = true;
+                }
+            } while (!validConsoleColor);
+
+            return consoleColor;
+        }
+
+        /// <summary>
+        /// read theme info to data file with try/catch block
+        /// returning a file IO status message using an out parameter
+        /// </summary>
+        /// <returns>tuple of foreground and background</returns>
+        static (ConsoleColor foregroundColor, ConsoleColor backgroundColor) ReadThemeDataExceptions(out string fileIOStatusMessage)
+        {
+            string dataPath = @"Data/Theme.txt";
+            string[] themeColors;
+
+            ConsoleColor foregroundColor = ConsoleColor.White;
+            ConsoleColor backgroundColor = ConsoleColor.Black;
+
+            //try catch used for validation
+            try
+            {
+                themeColors = File.ReadAllLines(dataPath);
+                if (Enum.TryParse(themeColors[0], true, out foregroundColor) &&
+                    Enum.TryParse(themeColors[1], true, out backgroundColor))
+                {
+                    fileIOStatusMessage = "Complete";
+                }
+                else
+                {
+                    fileIOStatusMessage = "Data file incorrectly formated.";
+                }
+            }
+            catch (DirectoryNotFoundException)
+            {
+                fileIOStatusMessage = "Unable to locate the folder for the data file.";
+            }
+            catch (Exception)
+            {
+                fileIOStatusMessage = "Unable to read data file.";
+            }
+
+            return (foregroundColor, backgroundColor);
+        }
+
+        /// <summary>
+        /// write theme info to data file with try/catch block
+        /// returning a file IO status message using an out parameter
+        /// </summary>
+        /// <returns>tuple of foreground and background</returns>
+        static string WriteThemeDataExceptions(ConsoleColor foreground, ConsoleColor background)
+        {
+            string dataPath = @"Data/Theme.txt";
+            string fileIOStatusMessage = "";
+
+            try
+            {
+                File.WriteAllText(dataPath, foreground.ToString() + "\n");
+                File.AppendAllText(dataPath, background.ToString());
+                fileIOStatusMessage = "Complete";
+            }
+            catch (DirectoryNotFoundException)
+            {
+                fileIOStatusMessage = "Unable to locate the folder for the data file.";
+            }
+            catch (Exception)
+            {
+                fileIOStatusMessage = "Unable to write to data file.";
+            }
+
+            return fileIOStatusMessage;
+        }
+
+        /// <summary>
+        /// Using a single data file for a user name and password
+        /// </summary>
+        /// 
+
+        /// <summary>
+        /// *****************************************************************
+        /// *                 Login/Register Screen                         *
+        /// *****************************************************************
+        /// </summary>
+        static void DisplayLoginRegister()
+        {
+            DisplayScreenHeader("Login/Register");
+
+            Console.WriteLine("\tAre you a registered user [ yes | no ]?");
+            if (Console.ReadLine().ToLower() == "yes")
+            {
+                DisplayLogin();
+            }
+            else
+            {
+                DisplayRegisterUser();
+                DisplayLoginRegister();
+            }
+        }
+
+        /// <summary>
+        /// *****************************************************************
+        /// *                          Login Screen                         *
+        /// *****************************************************************
+        /// </summary>
+        /// 
+        static void DisplayLogin()
+        {
+            string userName, password;
+            bool validLogin;
+
+            do
+            {
+                DisplayScreenHeader("Login");
+
+                Console.WriteLine();
+                Console.Write("\tEnter your user name:");
+                userName = Console.ReadLine();
+                Console.Write("\tEnter your password:");
+                password = Console.ReadLine();
+
+                validLogin = IsValidLoginInfo(userName, password);
+
+                Console.WriteLine();
+                if (validLogin)
+                {
+                    Console.WriteLine($"\tYou are now logged in {userName}");
+                }
+                else
+                {
+                    Console.WriteLine("\tIncorrect user name or password.");
+                    Console.WriteLine("\tPlease try again.");
+                }
+
+                DisplayContinuePrompt();
+            } while (!validLogin);
+        }
+
+        /// <summary>
+        /// check user login
+        /// </summary>
+        /// <param name="userName">user name entered</param>
+        /// <param name="password">password entered</param>
+        /// <returns>true if valid user</returns>
+        /// 
+        static bool IsValidLoginInfo(string userName, string password)
+        {
+            (string userName, string password) userInfo;
+            bool validUser;
+
+            userInfo = ReadLoginInfoData();
+
+            validUser = (userInfo.userName == userName) && (userInfo.password == password);
+
+            return validUser;
+        }
+
+        /// <summary>
+        /// *****************************************************************
+        /// *                       Register Screen                         *
+        /// *****************************************************************
+        /// write login info to data file
+        /// </summary>
+        /// 
+        static void DisplayRegisterUser()
+        {
+            string userName, password;
+
+            DisplayScreenHeader("Register");
+
+            Console.Write("\tEnter user name:");
+            userName = Console.ReadLine();
+            Console.Write("\tEnter password:");
+            password = Console.ReadLine();
+
+            WriteLoginInfoData(userName, password);
+
+            Console.WriteLine();
+            Console.WriteLine("\tThe following information has been saved to the application.");
+            Console.WriteLine($"\tUser name: {userName}");
+            Console.WriteLine($"\tPassword: {password}");
+
+            DisplayContinuePrompt();
+        }
+
+        /// <summary>
+        /// read login info from data file
+        /// Note: no error or validation checking
+        /// </summary>
+        /// <returns>tuple of user name and password</returns>
+        static (string userName, string password) ReadLoginInfoData()
+        {
+            string dataPath = @"Data/Logins.txt";
+
+            string loginInfoText;
+            string[] loginInfoArray;
+            (string userName, string password) loginInfoTuple;
+
+            loginInfoText = File.ReadAllText(dataPath);
+
+                //
+                // use the Split method to separate the user name and password into an array
+                //
+                loginInfoArray = loginInfoText.Split(',');
+                loginInfoTuple.userName = loginInfoArray[0];
+                loginInfoTuple.password = loginInfoArray[1];
+          
+            return loginInfoTuple;
+            }
+        /// <summary>
+        /// write login info to data file
+        /// Note: no error or validation checking
+        /// </summary>
+        static void WriteLoginInfoData(string userName, string password)
+        {
+            string dataPath = @"Data/Logins.txt";
+            string loginInfoText;
+
+            loginInfoText = userName + "," + password;
+
+            File.WriteAllText(dataPath, loginInfoText);
+        }
+
+        #endregion
+
+
+        #region FINCH ROBOT MANAGEMENT
+
+        /// <Disconnect>
+        /// *****************************************************************
+        /// *               Disconnect the Finch Robot                      *
+        /// *****************************************************************
+        /// </summary>
+        /// <param name="finchRobot">finch robot object</param>
+        static void DisplayDisconnectFinchRobot(Finch finchRobot)
         {
             Console.CursorVisible = false;
 
